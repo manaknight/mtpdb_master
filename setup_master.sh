@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # setup_master.sh — Install and run mtpdb_master as a systemd service.
 #
-# Usage:
+# Usage (public repo — no token needed):
 #   curl -fsSL https://raw.githubusercontent.com/manaknight/mtpdb_master/main/setup_master.sh | sudo bash
 #   OR clone the repo and run:  sudo bash setup_master.sh
+#
+# Usage (private repo — pass token at runtime, never hardcode):
+#   sudo GH_TOKEN=ghp_xxx bash setup_master.sh
 #
 # Options (environment variables):
 #   MASTER_PORT           Listen port              (default: 7000)
@@ -12,6 +15,7 @@
 #   SERVICE_USER          systemd service user      (default: mtpdb)
 #   SKIP_BUILD            Set to 1 to skip Rust build (binary must already exist)
 #   REPO_DIR              Where to clone/build      (default: /opt/mtpdb_master)
+#   GH_TOKEN              GitHub PAT for private repos (optional)
 
 set -euo pipefail
 
@@ -23,9 +27,17 @@ INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 SERVICE_USER="${SERVICE_USER:-mtpdb}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 REPO_DIR="${REPO_DIR:-/opt/mtpdb_master}"
-REPO_URL="https://github.com/manaknight/mtpdb_master.git"
 SERVICE_NAME="mtpdb_master"
 BINARY_NAME="mtpdb_master"
+
+# Build the clone URL: inject token only when GH_TOKEN is provided (private repos).
+# Public repos work fine with the plain URL and no credentials.
+_REPO_BASE="github.com/manaknight/mtpdb_master.git"
+if [[ -n "${GH_TOKEN:-}" ]]; then
+  REPO_URL="https://${GH_TOKEN}@${_REPO_BASE}"
+else
+  REPO_URL="https://${_REPO_BASE}"
+fi
 
 # ── colours ───────────────────────────────────────────────────────────────────
 
