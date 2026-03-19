@@ -1,0 +1,360 @@
+{
+  "info": {
+    "name": "MTPDB Orchestrators",
+    "_postman_id": "mtpdb-orchestrators-v1",
+    "description": "Postman collection for mtpdb_master (port 7000) and mtpdb_manager (port 7001). Run requests top-to-bottom for the happy-path provisioning workflow.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "master_url",
+      "value": "http://localhost:7000",
+      "description": "Master service base URL"
+    },
+    {
+      "key": "manager_url",
+      "value": "http://localhost:7001",
+      "description": "Manager service base URL"
+    },
+    {
+      "key": "server_id",
+      "value": "",
+      "description": "Auto-set after POST /servers succeeds"
+    },
+    {
+      "key": "instance_id",
+      "value": "",
+      "description": "Auto-set after POST /databases or POST /provision succeeds"
+    }
+  ],
+  "item": [
+    {
+      "name": "Master",
+      "description": "Requests targeting mtpdb_master on {{master_url}} (default: http://localhost:7000)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{master_url}}/health",
+              "host": ["{{master_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the master service."
+          },
+          "response": []
+        },
+        {
+          "name": "List Servers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{master_url}}/servers",
+              "host": ["{{master_url}}"],
+              "path": ["servers"]
+            },
+            "description": "Returns all registered servers known to the master."
+          },
+          "response": []
+        },
+        {
+          "name": "Provision Server (SSH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    var id = json.server_id || json.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('server_id', id);",
+                  "        pm.test('server_id captured: ' + id, function () {",
+                  "            pm.expect(id).to.be.a('string').and.not.empty;",
+                  "        });",
+                  "    } else {",
+                  "        pm.test('server_id field present in response', function () {",
+                  "            pm.expect(json).to.have.any.keys('server_id', 'id');",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    pm.test('Provision Server succeeded', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"192.168.1.100\",\n  \"username\": \"ubuntu\",\n  \"password\": \"your_ssh_password\",\n  \"region\": \"us-east-1\",\n  \"manager_port\": 7001,\n  \"manager_binary_path\": \"/usr/local/bin/mtpdb_manager\"\n}"
+            },
+            "url": {
+              "raw": "{{master_url}}/servers",
+              "host": ["{{master_url}}"],
+              "path": ["servers"]
+            },
+            "description": "Provisions a new server over SSH and registers it with the master. On success, `server_id` collection variable is auto-set."
+          },
+          "response": []
+        },
+        {
+          "name": "List Databases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{master_url}}/databases",
+              "host": ["{{master_url}}"],
+              "path": ["databases"]
+            },
+            "description": "Returns all provisioned database instances tracked by the master."
+          },
+          "response": []
+        },
+        {
+          "name": "Provision Database",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    var id = json.id || json.instance_id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('instance_id', id);",
+                  "        pm.test('instance_id captured: ' + id, function () {",
+                  "            pm.expect(id).to.be.a('string').and.not.empty;",
+                  "        });",
+                  "    } else {",
+                  "        pm.test('instance id field present in response', function () {",
+                  "            pm.expect(json).to.have.any.keys('id', 'instance_id');",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    pm.test('Provision Database succeeded', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"server_id\": \"{{server_id}}\",\n  \"db_name\": \"my_database\"\n}"
+            },
+            "url": {
+              "raw": "{{master_url}}/databases",
+              "host": ["{{master_url}}"],
+              "path": ["databases"]
+            },
+            "description": "Provisions a new database instance on the specified server. On success, `instance_id` collection variable is auto-set."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Database",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{master_url}}/databases/{{instance_id}}",
+              "host": ["{{master_url}}"],
+              "path": ["databases", "{{instance_id}}"]
+            },
+            "description": "Returns details for a specific database instance. Uses `{{instance_id}}` set by Provision Database."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Database",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{master_url}}/databases/{{instance_id}}",
+              "host": ["{{master_url}}"],
+              "path": ["databases", "{{instance_id}}"]
+            },
+            "description": "Deletes / deprovisions a database instance. Uses `{{instance_id}}` set by Provision Database."
+          },
+          "response": []
+        },
+        {
+          "name": "[Internal] Manager Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"server_id\": \"{{server_id}}\",\n  \"ip\": \"192.168.1.100\",\n  \"region\": \"us-east-1\",\n  \"manager_port\": 7001\n}"
+            },
+            "url": {
+              "raw": "{{master_url}}/internal/register",
+              "host": ["{{master_url}}"],
+              "path": ["internal", "register"]
+            },
+            "description": "Internal endpoint called by a manager to register itself with the master. Exposed here for manual testing / debugging."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Manager",
+      "description": "Requests targeting mtpdb_manager on {{manager_url}} (default: http://localhost:7001)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{manager_url}}/health",
+              "host": ["{{manager_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the manager service."
+          },
+          "response": []
+        },
+        {
+          "name": "Server Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{manager_url}}/info",
+              "host": ["{{manager_url}}"],
+              "path": ["info"]
+            },
+            "description": "Returns server-level metadata reported by the manager (host resources, version, etc.)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Instances",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{manager_url}}/instances",
+              "host": ["{{manager_url}}"],
+              "path": ["instances"]
+            },
+            "description": "Returns all database instances managed by this manager."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{manager_url}}/instances/{{instance_id}}",
+              "host": ["{{manager_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Returns details for a specific instance. Uses `{{instance_id}}` set by Provision Database or Provision Instance."
+          },
+          "response": []
+        },
+        {
+          "name": "Provision Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    var id = json.id || json.instance_id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('instance_id', id);",
+                  "        pm.test('instance_id captured: ' + id, function () {",
+                  "            pm.expect(id).to.be.a('string').and.not.empty;",
+                  "        });",
+                  "    } else {",
+                  "        pm.test('instance id field present in response', function () {",
+                  "            pm.expect(json).to.have.any.keys('id', 'instance_id');",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    pm.test('Provision Instance succeeded', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"db_name\": \"my_database\"\n}"
+            },
+            "url": {
+              "raw": "{{manager_url}}/provision",
+              "host": ["{{manager_url}}"],
+              "path": ["provision"]
+            },
+            "description": "Directly provisions a new database instance on this manager. On success, `instance_id` collection variable is auto-set."
+          },
+          "response": []
+        },
+        {
+          "name": "Stop Instance",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{manager_url}}/instances/{{instance_id}}",
+              "host": ["{{manager_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Stops and removes a managed database instance. Uses `{{instance_id}}` set by Provision Instance or Provision Database."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
